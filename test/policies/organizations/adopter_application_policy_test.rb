@@ -4,6 +4,10 @@ require "test_helper"
 class Organizations::AdopterApplicationPolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
+  setup do
+    @user = build_stubbed(:staff)
+  end
+
   context "context only action" do
     setup do
       @organization = ActsAsTenant.current_tenant
@@ -19,34 +23,21 @@ class Organizations::AdopterApplicationPolicyTest < ActiveSupport::TestCase
         @action = -> { @policy.call.apply(:manage?) }
       end
 
-      context "when user is nil" do
+      context "when user has valid permissions" do
         setup do
-          @user = nil
+          @user.stubs(:permissions).returns([:review_adopter_applications])
         end
 
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter" do
-        setup do
-          @user = create(:adopter)
+        should "return true" do
+          assert_equal @action.call, true
         end
 
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is activated staff" do
-        setup do
-          @user = create(:staff)
-        end
-
-        context "when organization context is a different organization" do
+        context "when user is not scoped within the organization context" do
           setup do
-            @organization = create(:organization)
+            ActsAsTenant.with_tenant(build_stubbed(:organization)) do
+              @user = build_stubbed(:staff)
+              @user.stubs(:permissions).returns([:review_adopter_applications])
+            end
           end
 
           should "return false" do
@@ -54,42 +45,25 @@ class Organizations::AdopterApplicationPolicyTest < ActiveSupport::TestCase
           end
         end
 
-        context "when organization context is user's organization" do
-          should "return true" do
-            assert_equal @action.call, true
-          end
-        end
-      end
-
-      context "when user is deactivated staff" do
-        setup do
-          @user = create(:staff, :deactivated)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is staff admin" do
-        setup do
-          @user = create(:staff_admin)
-        end
-
-        context "when organization context is a different organization" do
+        context "when user's staff account is deactivated" do
           setup do
-            @organization = create(:organization)
+            @user = build_stubbed(:staff, :deactivated)
+            @user.stubs(:permissions).returns([:review_adopter_applications])
           end
 
           should "return false" do
             assert_equal @action.call, false
           end
         end
+      end
 
-        context "when organization context is user's organization" do
-          should "return true" do
-            assert_equal @action.call, true
-          end
+      context "when user does not have valid permissions" do
+        setup do
+          @user.stubs(:permissions).returns([])
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
         end
       end
     end
@@ -116,35 +90,20 @@ class Organizations::AdopterApplicationPolicyTest < ActiveSupport::TestCase
         @action = -> { @policy.call.apply(:manage?) }
       end
 
-      context "when user is nil" do
+      context "when user has valid permissions" do
         setup do
-          @user = nil
+          @user.stubs(:permissions).returns([:review_adopter_applications])
         end
 
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter" do
-        setup do
-          @user = create(:adopter)
+        should "return true" do
+          assert_equal @action.call, true
         end
 
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is activated staff" do
-        setup do
-          @user = create(:staff)
-        end
-
-        context "when application belongs to a different organization" do
+        context "when user is not scoped within the organization context" do
           setup do
-            ActsAsTenant.with_tenant(create(:organization)) do
-              @adopter_application = create(:adopter_application)
+            ActsAsTenant.with_tenant(build_stubbed(:organization)) do
+              @user = build_stubbed(:staff)
+              @user.stubs(:permissions).returns([:review_adopter_applications])
             end
           end
 
@@ -153,44 +112,25 @@ class Organizations::AdopterApplicationPolicyTest < ActiveSupport::TestCase
           end
         end
 
-        context "when application belongs to user's organization" do
-          should "return true" do
-            assert_equal @action.call, true
-          end
-        end
-      end
-
-      context "when user is deactivated staff" do
-        setup do
-          @user = create(:staff, :deactivated)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is staff admin" do
-        setup do
-          @user = create(:staff_admin)
-        end
-
-        context "when application belongs to a different organization" do
+        context "when user's staff account is deactivated" do
           setup do
-            ActsAsTenant.with_tenant(create(:organization)) do
-              @adopter_application = create(:adopter_application)
-            end
+            @user = build_stubbed(:staff, :deactivated)
+            @user.stubs(:permissions).returns([:review_adopter_applications])
           end
 
           should "return false" do
             assert_equal @action.call, false
           end
         end
+      end
 
-        context "when application belongs to user's organization" do
-          should "return true" do
-            assert_equal @action.call, true
-          end
+      context "when user does not have valid permissions" do
+        setup do
+          @user.stubs(:permissions).returns([])
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
         end
       end
     end
