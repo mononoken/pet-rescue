@@ -4,9 +4,12 @@ require "test_helper"
 class Organizations::PetPolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
+  setup do
+    @user = build_stubbed(:staff)
+  end
+
   context "context only action" do
     setup do
-      @user = build_stubbed(:staff)
       @organization = ActsAsTenant.current_tenant
       @policy = -> {
         Organizations::PetPolicy.new(Pet, user: @user,
@@ -85,7 +88,6 @@ class Organizations::PetPolicyTest < ActiveSupport::TestCase
 
   context "existing record action" do
     setup do
-      @user = build_stubbed(:staff)
       @pet = create(:pet)
       @policy = -> { Organizations::PetPolicy.new(@pet, user: @user) }
     end
