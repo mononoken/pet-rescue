@@ -5,6 +5,7 @@ class Organizations::DashboardPolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
   setup do
+    @user = build_stubbed(:staff)
     @organization = ActsAsTenant.current_tenant
     @policy = -> {
       Organizations::DashboardPolicy.new(
@@ -19,53 +20,47 @@ class Organizations::DashboardPolicyTest < ActiveSupport::TestCase
       @action = -> { @policy.call.apply(:index?) }
     end
 
-    context "when user is nil" do
+    context "when user has valid permissions" do
       setup do
-        @user = nil
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is adopter" do
-      setup do
-        @user = create(:adopter)
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is deactivated staff" do
-      setup do
-        @user = create(:staff, :deactivated)
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is activated staff" do
-      setup do
-        @user = create(:staff)
+        @user.stubs(:permissions).returns([:view_organization_dashboard])
       end
 
       should "return true" do
         assert_equal @action.call, true
       end
-    end
 
-    context "when user is staff admin" do
-      setup do
-        @user = create(:staff_admin)
+      context "when user is not scoped within the organization context" do
+        setup do
+          ActsAsTenant.with_tenant(build_stubbed(:organization)) do
+            @user = build_stubbed(:staff)
+            @user.stubs(:permissions).returns([:view_organization_dashboard])
+          end
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
       end
 
-      should "return true" do
-        assert_equal @action.call, true
+      context "when user's staff account is deactivated" do
+        setup do
+          @user = build_stubbed(:staff, :deactivated)
+          @user.stubs(:permissions).returns([:view_organization_dashboard])
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+    end
+
+    context "when user does not have valid permissions" do
+      setup do
+        @user.stubs(:permissions).returns([])
+      end
+
+      should "return false" do
+        assert_equal @action.call, false
       end
     end
   end
