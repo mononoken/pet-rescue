@@ -5,7 +5,7 @@ class Organizations::StaffAccountPolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
   setup do
-    @user = build_stubbed(:user)
+    @user = build_stubbed(:staff)
     @staff = build_stubbed(:staff_account)
     @policy = -> { Organizations::StaffAccountPolicy.new(@staff, user: @user) }
   end
@@ -27,9 +27,20 @@ class Organizations::StaffAccountPolicyTest < ActiveSupport::TestCase
       context "when user is not scoped within the organization context" do
         setup do
           ActsAsTenant.with_tenant(build_stubbed(:organization)) do
-            @user = build_stubbed(:user)
+            @user = build_stubbed(:staff)
             @user.stubs(:permissions).returns([:manage_staff])
           end
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+
+      context "when user's staff account is deactivated" do
+        setup do
+          @user = build_stubbed(:staff, :deactivated)
+          @user.stubs(:permissions).returns([:manage_pets])
         end
 
         should "return false" do
@@ -66,7 +77,7 @@ class Organizations::StaffAccountPolicyTest < ActiveSupport::TestCase
       context "when user is not scoped within the organization context" do
         setup do
           ActsAsTenant.with_tenant(build_stubbed(:organization)) do
-            @user = build_stubbed(:user)
+            @user = build_stubbed(:staff)
             @user.stubs(:permissions).returns([:activate_staff])
           end
         end
