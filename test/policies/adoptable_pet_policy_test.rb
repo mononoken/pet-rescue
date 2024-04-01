@@ -5,8 +5,26 @@ class AdoptablePetPolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
   def setup
-    @policy = -> { AdoptablePetPolicy.new(@pet, user: @user) }
     @user = build_stubbed(:user)
+    @policy = -> { AdoptablePetPolicy.new(@pet, user: @user) }
+  end
+
+  context "relation_scope" do
+    setup do
+      @policy = AdoptablePetPolicy.new(Pet, user: @user)
+      @unadopted_pet = create(:pet)
+      @adopted_pet = create(:pet, :adopted)
+    end
+
+    should "return published pets where missing match" do
+      expected = [@unadopted_pet].map(&:id)
+
+      scoped = @policy
+        .apply_scope(Pet.all, type: :active_record_relation)
+        .pluck(:id)
+
+      assert_equal(scoped, expected)
+    end
   end
 
   context "#show?" do
