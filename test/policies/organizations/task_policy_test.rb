@@ -7,7 +7,8 @@ class Organizations::TaskPolicyTest < ActiveSupport::TestCase
   context "context only action" do
     setup do
       @organization = ActsAsTenant.current_tenant
-      @pet = create(:pet)
+      @pet = build_stubbed(:pet)
+      @user = build_stubbed(:staff)
       @policy = -> {
         Organizations::TaskPolicy.new(Task, user: @user,
           organization: @organization,
@@ -20,53 +21,57 @@ class Organizations::TaskPolicyTest < ActiveSupport::TestCase
         @action = -> { @policy.call.apply(:manage?) }
       end
 
-      context "when user is nil" do
+      context "when user has valid permissions" do
         setup do
-          @user = nil
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter" do
-        setup do
-          @user = create(:adopter)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is deactivated staff" do
-        setup do
-          @user = create(:staff, :deactivated)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is active staff" do
-        setup do
-          @user = create(:staff)
+          @user.stubs(:permissions).returns([:manage_tasks, :manage_pets])
         end
 
         should "return true" do
           assert_equal @action.call, true
         end
-      end
 
-      context "when user is staff admin" do
-        setup do
-          @user = create(:staff_admin)
+        context "when user is not scoped witin the organization context" do
+          setup do
+            ActsAsTenant.with_tenant(build_stubbed(:organization)) do
+              @user = build_stubbed(:staff)
+              @user.stubs(:permissions).returns([:manage_tasks, :manage_pets])
+            end
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
         end
 
-        should "return true" do
-          assert_equal @action.call, true
+        context "when user does not have permission to manage pets" do
+          setup do
+            @user.stubs(:permissions).returns([:manage_tasks])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
+        end
+
+        context "when user's staff account is deactivated" do
+          setup do
+            @user = build_stubbed(:staff, :deactivated)
+            @user.stubs(:permissions).returns([:manage_tasks, :manage_pets])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
+        end
+      end
+
+      context "when user does not have permission" do
+        setup do
+          @user.stubs(:permissions).returns([])
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
         end
       end
     end
@@ -86,8 +91,9 @@ class Organizations::TaskPolicyTest < ActiveSupport::TestCase
 
   context "existing record action" do
     setup do
-      @pet = create(:pet)
-      @task = create(:task, pet: @pet)
+      @user = build_stubbed(:staff)
+      @pet = build_stubbed(:pet)
+      @task = build_stubbed(:task, pet: @pet)
       @policy = -> {
         Organizations::TaskPolicy.new(@task, user: @user,
           organization: @pet.organization)
@@ -99,56 +105,20 @@ class Organizations::TaskPolicyTest < ActiveSupport::TestCase
         @action = -> { @policy.call.apply(:manage?) }
       end
 
-      context "when user is nil" do
+      context "when user has valid permissions" do
         setup do
-          @user = nil
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter" do
-        setup do
-          @user = create(:adopter)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is deactivated staff" do
-        setup do
-          @user = create(:staff, :deactivated)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is active staff" do
-        setup do
-          @user = create(:staff)
+          @user.stubs(:permissions).returns([:manage_tasks, :manage_pets])
         end
 
         should "return true" do
           assert_equal @action.call, true
         end
-      end
 
-      context "when user is staff admin" do
-        setup do
-          @user = create(:staff_admin)
-        end
-
-        context "when pet is from a different organization" do
+        context "when user is not scoped witin the organization context" do
           setup do
-            @other_organization = create(:organization)
-            ActsAsTenant.with_tenant(@other_organization) do
-              @pet = create(:pet)
+            ActsAsTenant.with_tenant(build_stubbed(:organization)) do
+              @user = build_stubbed(:staff)
+              @user.stubs(:permissions).returns([:manage_tasks, :manage_pets])
             end
           end
 
@@ -157,17 +127,31 @@ class Organizations::TaskPolicyTest < ActiveSupport::TestCase
           end
         end
 
-        context "when pet is from the same organization" do
-          should "return true" do
-            assert_equal @action.call, true
+        context "when user does not have permission to manage pets" do
+          setup do
+            @user.stubs(:permissions).returns([:manage_tasks])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
+        end
+
+        context "when user's staff account is deactivated" do
+          setup do
+            @user = build_stubbed(:staff, :deactivated)
+            @user.stubs(:permissions).returns([:manage_tasks, :manage_pets])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
           end
         end
       end
 
-      context "when user is not allowed to manage pets" do
+      context "when user does not have permission" do
         setup do
-          @user = create(:staff)
-          @user.expects(:permission?).with(:manage_pets).returns(false)
+          @user.stubs(:permissions).returns([])
         end
 
         should "return false" do
