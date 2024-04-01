@@ -5,6 +5,7 @@ class Organizations::OrganizationProfilePolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
   setup do
+    @user = build_stubbed(:staff)
     @organization = ActsAsTenant.current_tenant
     @policy = -> {
       Organizations::OrganizationProfilePolicy.new(Pet, user: @user,
@@ -17,53 +18,47 @@ class Organizations::OrganizationProfilePolicyTest < ActiveSupport::TestCase
       @action = -> { @policy.call.apply(:manage?) }
     end
 
-    context "when user is nil" do
+    context "when user has valid permissions" do
       setup do
-        @user = nil
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is adopter" do
-      setup do
-        @user = create(:adopter)
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is deactivated staff" do
-      setup do
-        @user = create(:staff, :deactivated)
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is active staff" do
-      setup do
-        @user = create(:staff)
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is staff admin" do
-      setup do
-        @user = create(:staff_admin)
+        @user.stubs(:permissions).returns([:manage_organization_profile])
       end
 
       should "return true" do
         assert_equal @action.call, true
+      end
+
+      context "when user is not scoped witin the organization context" do
+        setup do
+          ActsAsTenant.with_tenant(build_stubbed(:organization)) do
+            @user = build_stubbed(:staff)
+            @user.stubs(:permissions).returns([:manage_organization_profile])
+          end
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+
+      context "when user's staff account is deactivated" do
+        setup do
+          @user = build_stubbed(:staff, :deactivated)
+          @user.stubs(:permissions).returns([:manage_organization_profile])
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+    end
+
+    context "when user does not have valid permissions" do
+      setup do
+        @user.stubs(:permissions).returns([])
+      end
+
+      should "return false" do
+        assert_equal @action.call, false
       end
     end
   end
