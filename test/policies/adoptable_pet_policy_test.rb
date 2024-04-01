@@ -6,6 +6,7 @@ class AdoptablePetPolicyTest < ActiveSupport::TestCase
 
   def setup
     @policy = -> { AdoptablePetPolicy.new(@pet, user: @user) }
+    @user = build_stubbed(:user)
   end
 
   context "#show?" do
@@ -15,44 +16,40 @@ class AdoptablePetPolicyTest < ActiveSupport::TestCase
 
     context "when pet is not published" do
       setup do
-        @pet = create(:pet, published: false)
+        @pet = build_stubbed(:pet, published: false)
       end
 
-      context "when user is nil" do
+      context "when user is allowed to manage pets" do
         setup do
-          @user = nil
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter" do
-        setup do
-          @user = create(:adopter, :with_profile)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is staff" do
-        setup do
-          @user = create(:staff)
+          @policy = @policy.call
+          @policy.stubs(:allowed_to?)
+            .with(:manage?, @pet, namespace: Organizations)
+            .returns(true)
+          @action = @policy.apply(:show?)
         end
 
         should "return true" do
-          assert_equal @action.call, true
+          assert_equal @action, true
+        end
+      end
+
+      context "when user is not allowed to manage pets" do
+        setup do
+          @policy = @policy.call
+          @policy.stubs(:allowed_to?)
+            .returns(false)
+          @action = @policy.apply(:show?)
+        end
+
+        should "return false" do
+          assert_equal @action, false
         end
       end
     end
 
     context "when pet is published" do
       setup do
-        @pet = create(:pet, published: true)
-        @user = nil
+        @pet = build_stubbed(:pet, published: true)
       end
 
       should "return true" do
@@ -62,8 +59,7 @@ class AdoptablePetPolicyTest < ActiveSupport::TestCase
 
     context "when pet already has a match" do
       setup do
-        @pet = create(:pet, :adopted)
-        @user = create(:adopter, :with_profile)
+        @pet = build_stubbed(:pet, :adopted)
       end
 
       should "return false" do
