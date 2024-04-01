@@ -27,7 +27,7 @@ class Organizations::OrganizationProfilePolicyTest < ActiveSupport::TestCase
         assert_equal @action.call, true
       end
 
-      context "when user is not scoped witin the organization context" do
+      context "when user is not scoped within the organization context" do
         setup do
           ActsAsTenant.with_tenant(build_stubbed(:organization)) do
             @user = build_stubbed(:staff)
