@@ -4,6 +4,10 @@ require "test_helper"
 class AdopterApplicationPolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
+  setup do
+    @user = build_stubbed(:user)
+  end
+
   context "relation_scope" do
     setup do
       policy = -> {
@@ -57,19 +61,35 @@ class AdopterApplicationPolicyTest < ActiveSupport::TestCase
       @action = -> { @policy.call.apply(:index?) }
     end
 
-    context "when user is nil" do
+    context "when user is adopter with profile" do
       setup do
-        @user = nil
+        @user = build_stubbed(:adopter, :with_profile)
       end
 
-      should "return false" do
-        assert_equal @action.call, false
+      context "when user has valid permissions" do
+        setup do
+          @user.stubs(:permissions).returns([:view_adopter_applications])
+        end
+
+        should "return true" do
+          assert_equal @action.call, true
+        end
+      end
+
+      context "when user does not have valid permissions" do
+        setup do
+          @user.stubs(:permissions).returns([])
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
       end
     end
 
     context "when user not associated with adopter account" do
       setup do
-        @user = create(:user)
+        @user = build_stubbed(:user)
       end
 
       should "return false" do
@@ -79,21 +99,11 @@ class AdopterApplicationPolicyTest < ActiveSupport::TestCase
 
     context "when user is adopter without profile" do
       setup do
-        @user = create(:adopter)
+        @user = build_stubbed(:adopter)
       end
 
       should "return false" do
         assert_equal @action.call, false
-      end
-    end
-
-    context "when user is adopter with profile" do
-      setup do
-        @user = create(:adopter, :with_profile)
-      end
-
-      should "return true" do
-        assert_equal @action.call, true
       end
     end
   end
@@ -108,19 +118,123 @@ class AdopterApplicationPolicyTest < ActiveSupport::TestCase
       @action = -> { @policy.call.apply(:create?) }
     end
 
-    context "when user is nil" do
+    context "when user is adopter with profile" do
       setup do
-        @user = nil
+        @user = build_stubbed(:adopter, :with_profile)
       end
 
-      should "return false" do
-        assert_equal @action.call, false
+      context "when user has valid permissions" do
+        setup do
+          @user.stubs(:permissions).returns([:create_adopter_applications])
+        end
+
+        context "when pet application is not paused" do
+          setup do
+            @pet = create(:pet, application_paused: false)
+          end
+
+          context "when user already has an existing application for the pet" do
+            setup do
+              @user = create(:adopter, :with_profile)
+              @user.stubs(:permissions).returns([:create_adopter_applications])
+              @existing_app = create(:adopter_application, user: @user, pet: @pet)
+            end
+
+            should "return false" do
+              assert_equal @action.call, false
+            end
+          end
+
+          context "when user has not applied for the pet" do
+            should "return true" do
+              assert_equal @action.call, true
+            end
+          end
+        end
+
+        context "when user does not have valid permissions" do
+          setup do
+            @user.stubs(:permissions).returns([])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
+        end
+      end
+
+      context "when user not associated with adopter account" do
+        setup do
+          @user = build_stubbed(:user)
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+
+      context "when user is adopter without profile" do
+        setup do
+          @user = build_stubbed(:adopter)
+        end
+
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+    end
+  end
+
+  context "#update?" do
+    setup do
+      @adopter_application = build_stubbed(:adopter_application)
+      @policy = -> {
+        AdopterApplicationPolicy.new(@adopter_application, user: @user)
+      }
+      @action = -> { @policy.call.apply(:update?) }
+    end
+
+    context "when user is adopter with profile" do
+      setup do
+        @user = build_stubbed(:adopter, :with_profile)
+      end
+
+      context "when adopter account does not belong to user" do
+        should "return false" do
+          assert_equal @action.call, false
+        end
+      end
+
+      context "when adopter account belongs to user" do
+        setup do
+          @user = @adopter_application.adopter_foster_account.user
+        end
+
+        context "when user has valid permissions" do
+          setup do
+            @user.stubs(:permissions).returns([:withdraw_adopter_applications])
+          end
+
+          should "return true" do
+            assert_equal @action.call, true
+          end
+        end
+
+        context "when user does not have valid permissions" do
+          setup do
+            @user.stubs(:permissions).returns([])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
+        end
       end
     end
 
     context "when user not associated with adopter account" do
       setup do
-        @user = create(:user)
+        @user = build_stubbed(:user)
       end
 
       should "return false" do
@@ -130,117 +244,11 @@ class AdopterApplicationPolicyTest < ActiveSupport::TestCase
 
     context "when user is adopter without profile" do
       setup do
-        @user = create(:adopter)
+        @user = build_stubbed(:adopter)
       end
 
       should "return false" do
         assert_equal @action.call, false
-      end
-    end
-
-    context "when user is adopter with profile" do
-      setup do
-        @user = create(:adopter, :with_profile)
-      end
-
-      context "when pet application is paused" do
-        setup do
-          @pet = create(:pet, application_paused: true)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when pet application is not paused" do
-        setup do
-          @pet = create(:pet, application_paused: false)
-        end
-
-        context "when user already has an existing application for the pet" do
-          setup do
-            @existing_app = create(:adopter_application, user: @user, pet: @pet)
-          end
-
-          should "return false" do
-            assert_equal @action.call, false
-          end
-        end
-
-        context "when user has not applied for the pet" do
-          should "return true" do
-            # debugger
-            assert_equal @action.call, true
-          end
-        end
-      end
-    end
-  end
-
-  context "existing record action" do
-    setup do
-      @adopter_application = create(:adopter_application)
-      @policy = -> {
-        AdopterApplicationPolicy.new(@adopter_application, user: @user)
-      }
-    end
-
-    context "#update?" do
-      setup do
-        @action = -> { @policy.call.apply(:update?) }
-      end
-
-      context "when user is nil" do
-        setup do
-          @user = nil
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when adopter account does not belong to user" do
-        context "when user is adopter" do
-          setup do
-            @user = create(:adopter)
-          end
-
-          should "return false" do
-            assert_equal @action.call, false
-          end
-        end
-
-        context "when user is active staff" do
-          setup do
-            @user = create(:staff)
-          end
-
-          should "return false" do
-            assert_equal @action.call, false
-          end
-        end
-
-        context "when user is staff admin" do
-          setup do
-            @user = create(:staff_admin)
-          end
-
-          should "return false" do
-            assert_equal @action.call, false
-          end
-        end
-      end
-
-      context "when adopter account belongs to user" do
-        setup do
-          @user = @adopter_application.adopter_foster_account.user
-        end
-
-        should "return true" do
-          assert_equal @action.call, true
-        end
       end
     end
   end
