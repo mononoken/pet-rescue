@@ -4,6 +4,10 @@ require "test_helper"
 class AdopterFosterProfilePolicyTest < ActiveSupport::TestCase
   include PetRescue::PolicyAssertions
 
+  setup do
+    @user = build_stubbed(:user)
+  end
+
   context "#new?" do
     setup do
       @policy = -> { AdopterFosterProfilePolicy.new(AdopterFosterProfile, user: @user) }
@@ -20,49 +24,29 @@ class AdopterFosterProfilePolicyTest < ActiveSupport::TestCase
       @action = -> { @policy.call.apply(:create?) }
     end
 
-    context "when user is nil" do
+    context "when user has valid permissions" do
       setup do
-        @user = nil
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is adopter without profile" do
-      setup do
-        @user = create(:adopter)
+        @user.stubs(:permissions).returns([:create_adopter_foster_profiles])
       end
 
       should "return true" do
         assert_equal @action.call, true
       end
-    end
 
-    context "when user is adopter with profile" do
-      setup do
-        @user = create(:adopter, :with_profile)
-      end
+      context "when user is adopter with profile" do
+        setup do
+          @user = build_stubbed(:adopter, :with_profile)
+        end
 
-      should "return false" do
-        assert_equal @action.call, false
-      end
-    end
-
-    context "when user is staff" do
-      setup do
-        @user = create(:staff)
-      end
-
-      should "return false" do
-        assert_equal @action.call, false
+        should "return false" do
+          assert_equal @action.call, false
+        end
       end
     end
 
-    context "when user is staff admin" do
+    context "when user does not have valid permissions" do
       setup do
-        @user = create(:staff_admin)
+        @user.stubs(:permissions).returns([])
       end
 
       should "return false" do
@@ -73,7 +57,7 @@ class AdopterFosterProfilePolicyTest < ActiveSupport::TestCase
 
   context "existing record action" do
     setup do
-      @profile = create(:adopter_foster_profile)
+      @profile = build_stubbed(:adopter_foster_profile)
       @policy = -> { AdopterFosterProfilePolicy.new(@profile, user: @user) }
     end
 
@@ -82,61 +66,35 @@ class AdopterFosterProfilePolicyTest < ActiveSupport::TestCase
         @action = -> { @policy.call.apply(:manage?) }
       end
 
-      context "when user is nil" do
+      context "when user owns the profile" do
         setup do
-          @user = nil
+          @user = @profile.adopter_foster_account.user
         end
 
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter without profile" do
-        setup do
-          @user = create(:adopter)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is adopter with profile" do
-        setup do
-          @user = create(:adopter, :with_profile)
-        end
-
-        context "when profile does not belong to user" do
-          should "return false" do
-            assert_equal @action.call, false
-          end
-        end
-
-        context "when profile belongs to user" do
+        context "when user has valid permissions" do
           setup do
-            @user = @profile.adopter_foster_account.user
+            @user.stubs(:permissions).returns([:manage_adopter_foster_profiles])
           end
 
           should "return true" do
             assert_equal @action.call, true
           end
         end
+
+        context "when user does not have valid permissions" do
+          setup do
+            @user.stubs(:permissions).returns([])
+          end
+
+          should "return false" do
+            assert_equal @action.call, false
+          end
+        end
       end
 
-      context "when user is staff" do
+      context "when user does not own the profile" do
         setup do
-          @user = create(:staff)
-        end
-
-        should "return false" do
-          assert_equal @action.call, false
-        end
-      end
-
-      context "when user is staff admin" do
-        setup do
-          @user = create(:staff_admin)
+          @user = build_stubbed(:adopter, :with_profile)
         end
 
         should "return false" do
