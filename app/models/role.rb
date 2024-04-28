@@ -25,5 +25,11 @@ class Role < ApplicationRecord
     inclusion: {in: Rolify.resource_types},
     allow_nil: true
 
+  validates :name,
+    inclusion: {
+      in: Authorizable::ROLES,
+      message: "%{value} is not a valid role"
+    }
+
   scopify
 end
