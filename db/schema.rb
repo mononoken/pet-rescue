@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_04_28_224449) do
+ActiveRecord::Schema[7.1].define(version: 2024_04_28_234251) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -260,9 +260,9 @@ ActiveRecord::Schema[7.1].define(version: 2024_04_28_224449) do
     t.bigint "resource_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["name", "resource_type", "resource_id"], name: "index_roles_on_name_and_resource_type_and_resource_id"
+    t.index ["name", "resource_type", "resource_id"], name: "index_roles_on_name_and_resource_type_and_resource_id", unique: true
     t.index ["resource_type", "resource_id"], name: "index_roles_on_resource"
-    t.check_constraint "name::text = ANY (ARRAY['adopter'::character varying, 'fosterer'::character varying, 'staff'::character varying, 'admin'::character varying]::text[])", name: "valid_role_names"
+    t.check_constraint "name::text = ANY (ARRAY['adopter'::character varying::text, 'fosterer'::character varying::text, 'staff'::character varying::text, 'admin'::character varying::text])", name: "valid_role_names"
   end
 
   create_table "staff_accounts", force: :cascade do |t|

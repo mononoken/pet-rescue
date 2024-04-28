@@ -11,7 +11,7 @@
 #
 # Indexes
 #
-#  index_roles_on_name_and_resource_type_and_resource_id  (name,resource_type,resource_id)
+#  index_roles_on_name_and_resource_type_and_resource_id  (name,resource_type,resource_id) UNIQUE
 #  index_roles_on_resource                                (resource_type,resource_id)
 #
 class Role < ApplicationRecord
@@ -29,7 +29,8 @@ class Role < ApplicationRecord
     inclusion: {
       in: Authorizable::ROLES,
       message: "%{value} is not a valid role"
-    }
+    },
+    uniqueness: {scope: [:resource_type, :resource_id]}
 
   scopify
 end
